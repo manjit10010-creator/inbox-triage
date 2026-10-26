@@ -11,10 +11,13 @@ load_dotenv()
 client = genai.Client()
 
 MODEL = "gemini-3.5-flash-lite"  # one place to change it later
-CSV_PATH = "results.csv"
+INBOX_PATH = "inbox.csv"
+RESULTS_PATH = "results.csv"
 
 FIELDS = [
-    "message",
+    "id",
+    "sender",
+    "subject",
     "category",
     "sender_name",
     "summary",
@@ -113,57 +116,59 @@ def decide_action(result: dict) -> str:
     return "ready_for_approval"
 
 
+def load_inbox() -> list:
+    """Read incoming messages from inbox.csv."""
+    with open(INBOX_PATH, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
 def load_done() -> dict:
     """Read results.csv (if it exists) so finished messages are not re-sent."""
-    if not os.path.exists(CSV_PATH):
+    if not os.path.exists(RESULTS_PATH):
         return {}
-    with open(CSV_PATH, newline="", encoding="utf-8") as f:
-        return {row["message"]: row for row in csv.DictReader(f)}
+    with open(RESULTS_PATH, newline="", encoding="utf-8") as f:
+        return {row["id"]: row for row in csv.DictReader(f)}
 
 
 def save_all(rows: list) -> None:
-    with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
+    with open(RESULTS_PATH, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
 
 
 if __name__ == "__main__":
-    test_messages = [
-        "Hi, I'm Priya from Bright Cafe. We need a website with online ordering, ideally launched next month. What would it cost?",
-        "My order #4821 never arrived and nobody is replying to my emails. This is the third time I'm writing. I want a refund TODAY.",
-        "CONGRATULATIONS! You've won a free prize. Click here to claim now!!!",
-        "hey, are you free to talk sometime?",
-        # harder cases
-        "Love your product, but the checkout keeps crashing. Also, do you offer bulk discounts for 50+ licenses?",
-        "Bhai, website banwani hai apne shop ke liye, kitna lagega? Jaldi batao.",
-        "I'm sure this is just a misunderstanding, but this is my fifth email and I'm now contacting my lawyer.",
-        "hi",
-    ]
-
+    inbox = load_inbox()
     done = load_done()
     rows = list(done.values())
 
-    for message in test_messages:
-        if message in done:
-            print(f"Skipping (already saved): {message[:40]}...")
+    new_count = 0
+    for item in inbox:
+        if item["id"] in done:
+            print(f"Skipping #{item['id']} (already processed)")
             continue
 
+        text = f"From: {item['sender']}\nSubject: {item['subject']}\n\n{item['body']}"
+
         try:
-            result = classify_message(message)
+            result = classify_message(text)
         except RuntimeError as e:
             print(e)
             break
 
-        result["message"] = message
+        result["id"] = item["id"]
+        result["sender"] = item["sender"]
+        result["subject"] = item["subject"]
         result["action"] = decide_action(result)
         rows.append(result)
+        new_count += 1
         save_all(rows)  # saved after every message, so a crash loses nothing
 
-        print(f"[{result['action'].upper()}] {result['category']} / {result['urgency']}")
-        print(f"Message: {message}")
+        print(f"#{item['id']} [{result['action'].upper()}] {result['category']} / {result['urgency']}")
+        print(f"From:    {item['sender']}")
+        print(f"Message: {item['body']}")
         print(f"Draft:   {result['draft_reply']}")
         print("---")
         time.sleep(6)  # stay under the per-minute limit
 
-    print(f"Done. {len(rows)} results in {CSV_PATH}")
+    print(f"Done. {new_count} new, {len(rows)} total in {RESULTS_PATH}")

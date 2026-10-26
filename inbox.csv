@@ -1,0 +1,10 @@
+id,sender,subject,body
+1,priya@brightcafe.example,Website,"Hi, I'm Priya from Bright Cafe. We need a website with online ordering, ideally launched next month. What would it cost?"
+2,customer1@example.com,Order #4821,"My order #4821 never arrived and nobody is replying to my emails. This is the third time I'm writing. I want a refund TODAY."
+3,promo@win-prizes.example,Winner,"CONGRATULATIONS! You've won a free prize. Click here to claim now!!!"
+4,sam@example.com,Hello,"hey, are you free to talk sometime?"
+5,dev@example.com,Checkout,"Love your product, but the checkout keeps crashing. Also, do you offer bulk discounts for 50+ licenses?"
+6,rahul@example.com,Website,"Bhai, website banwani hai apne shop ke liye, kitna lagega? Jaldi batao."
+7,angry@example.com,Re: Re: Re: Order,"I'm sure this is just a misunderstanding, but this is my fifth email and I'm now contacting my lawyer."
+8,anon@example.com,hi,"hi"
+9,test@example.com,Demo,"Hi, can you build a chatbot for our clinic's appointment booking? Budget is around 30k."
