@@ -3,6 +3,7 @@ import json
 import os
 import time
 
+import requests
 from dotenv import load_dotenv
 from google import genai
 from google.genai import errors, types
@@ -59,6 +60,7 @@ def classify_message(message: str) -> dict:
     Rules for draft_reply:
     - Reply in the same language as the message. If the message is Hinglish
       (Hindi written in English letters), reply in simple Hinglish.
+    - Use a polite, professional tone. Do not use words like "Bhai" or "Yaar".
     - Never promise refunds, prices, discounts, deadlines, or legal positions,
       and never admit fault. Do not invent any facts.
     - If the message mentions a lawyer, lawsuit, or legal action, draft_reply
@@ -116,6 +118,30 @@ def decide_action(result: dict) -> str:
     return "ready_for_approval"
 
 
+def send_alert(item: dict, result: dict) -> None:
+    """Post to a Discord webhook. A failed alert must never crash the pipeline."""
+    url = os.environ.get("DISCORD_WEBHOOK_URL")
+    if not url:
+        print("Discord webhook is not configured, skipping alert.")
+        return
+
+    text = (
+        f"**NEEDS HUMAN REVIEW ({result['urgency'].upper()})**\n"
+        f"From: {item['sender']}\n"
+        f"Subject: {item['subject']}\n"
+        f"Category: {result['category']}\n"
+        f"Summary: {result['summary']}\n"
+        f"Why: {result['reason']}"
+    )
+
+    try:
+        response = requests.post(url, json={"content": text[:1900]}, timeout=30)
+        if response.status_code not in (200, 204):
+            print(f"Alert failed: {response.status_code}")
+    except requests.RequestException as e:
+        print(f"Alert failed: {type(e).__name__}")
+
+
 def load_inbox() -> list:
     """Read incoming messages from inbox.csv."""
     with open(INBOX_PATH, newline="", encoding="utf-8") as f:
@@ -168,6 +194,10 @@ if __name__ == "__main__":
         print(f"From:    {item['sender']}")
         print(f"Message: {item['body']}")
         print(f"Draft:   {result['draft_reply']}")
+
+        if result["action"] == "human_review":
+            send_alert(item, result)
+
         print("---")
         time.sleep(6)  # stay under the per-minute limit
 

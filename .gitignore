@@ -10,3 +10,5 @@ wheels/
 .env
 .venv/
 __pycache__/
+inbox.csv
+results.csv
