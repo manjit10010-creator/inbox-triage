@@ -4,6 +4,8 @@ An AI-powered assistant that reads incoming business messages, classifies them, 
 
 Built with Python and the Gemini API.
 
+**Demo video:** [add your link here]
+
 ## What it does
 
 For every new message it:
@@ -15,6 +17,19 @@ For every new message it:
 5. **Sends a Discord alert** for anything that needs a human
 6. **Saves everything** to `results.csv`, and never processes the same message twice
 
+## How it works
+
+```
+inbox.csv  ->  Gemini classifies + drafts  ->  routing rules (code)  ->  results.csv
+                                                      |
+                                                      +-> Discord alert (human_review only)
+```
+
+- `inbox.csv` holds incoming messages (`id, sender, subject, body`).
+- Each message is sent to Gemini once, with a prompt that returns structured JSON.
+- `decide_action` in `triage.py` turns that JSON into an action using fixed rules.
+- Every result is saved immediately, so a crash never loses finished work.
+
 ## Safety design
 
 Whether a message is auto-handled or held for a person is decided in **code, not by the model**:
@@ -24,6 +39,7 @@ Whether a message is auto-handled or held for a person is decided in **code, not
 - Messages containing legal threats get **no draft at all**, so nobody can approve an auto-reply by accident.
 - The reply prompt forbids promising refunds, prices, or deadlines, and forbids admitting fault.
 - Nothing is ever sent automatically. Drafts are suggestions for a person to approve.
+- A failed Discord alert never stops the pipeline, and the message is still saved as `human_review`.
 
 ## Example
 
@@ -47,12 +63,18 @@ Why: The message involves repeated unanswered contact and a legal threat.
 
 ## Setup
 
-Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/), which installs the right Python version for you.
 
 ```bash
 git clone https://github.com/manjit10010-creator/inbox-triage.git
 cd inbox-triage
 uv sync
+```
+
+**Windows note:** if the project is inside a OneDrive folder and `uv sync` fails with a hardlink error, run:
+
+```bash
+uv sync --link-mode=copy
 ```
 
 Create a `.env` file in the project folder:
@@ -62,6 +84,8 @@ GEMINI_API_KEY=your-gemini-key
 DISCORD_WEBHOOK_URL=your-discord-webhook-url   # optional, for alerts
 ```
 
+Never commit `.env`. It is already listed in `.gitignore`.
+
 Create your inbox file from the sample:
 
 ```bash
@@ -69,7 +93,7 @@ cp inbox.sample.csv inbox.csv        # macOS / Linux
 Copy-Item inbox.sample.csv inbox.csv # Windows PowerShell
 ```
 
-`inbox.csv` has the columns `id, sender, subject, body`.
+`inbox.csv` has the columns `id, sender, subject, body`. Wrap the body in double quotes if it contains commas.
 
 ## Usage
 
@@ -79,7 +103,9 @@ uv run triage.py
 
 Results are written to `results.csv`. Running the script again skips messages that were already processed, so only new rows in `inbox.csv` use API requests.
 
-To check your Discord webhook on its own: `uv run test_discord.py`
+To reprocess everything from scratch, delete `results.csv`.
+
+To check your Discord webhook on its own: `uv run test_discord.py` (a working webhook returns `204`).
 
 ## Configuration
 
@@ -91,11 +117,13 @@ To check your Discord webhook on its own: `uv run test_discord.py`
 
 - Messages are read from a CSV file. Gmail or form input is not implemented yet.
 - Replies are drafts only, and nothing is sent.
-- The free Gemini tier has low daily limits and is not meant for real customer data. Use a paid tier and review the data terms before using real messages.
-- Draft language and tone can vary between runs, which is why the safety rules are enforced in code.
+- The free Gemini tier has low request limits (per minute and per day) and is not meant for real customer data. Use a paid tier and review Google's data terms before using real messages.
+- Draft language and tone can vary between runs, which is why the safety rules are enforced in code rather than in the prompt.
+- Sender names may be guessed from email addresses, so treat them as hints.
 
 ## Roadmap
 
 - Gmail input
 - Web form input
 - Approval step before sending
+- Reply in the sender's language more consistently, using example replies in the prompt

@@ -1,7 +1,7 @@
 [project]
 name = "inbox-triage"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI inbox triage assistant: classifies messages, drafts replies, and alerts a human when needed."
 readme = "README.md"
 authors = [
     { name = "manjit10010-creator", email = "manjit10010@gmail.com" }
@@ -10,14 +10,8 @@ requires-python = ">=3.14"
 dependencies = [
     "google-genai>=2.33.0",
     "python-dotenv>=1.2.4",
+    "requests>=2.31.0",
 ]
-
-[project.scripts]
-inbox-triage = "inbox_triage:main"
-
-[build-system]
-requires = ["uv_build>=0.12.23,<0.13.0"]
-build-backend = "uv_build"
 
 [tool.uv]
 package = false

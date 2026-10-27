@@ -350,12 +350,14 @@ source = { virtual = "." }
 dependencies = [
     { name = "google-genai" },
     { name = "python-dotenv" },
+    { name = "requests" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "google-genai", specifier = ">=2.33.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
+    { name = "requests", specifier = ">=2.31.0" },
 ]
 
 [[package]]
