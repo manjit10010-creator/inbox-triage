@@ -12,3 +12,11 @@ wheels/
 __pycache__/
 inbox.csv
 results.csv
+
+
+.env
+credentials.json
+token.json
+.venv/
+results.csv
+inbox.csv
