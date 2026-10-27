@@ -1,4 +1,5 @@
 # Python-generated files
+# Python
 __pycache__/
 *.py[oc]
 build/
@@ -6,17 +7,14 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
-.env
+# Virtual environment
 .venv/
-__pycache__/
-inbox.csv
-results.csv
 
-
+# Secrets (never commit)
 .env
 credentials.json
 token.json
-.venv/
-results.csv
+
+# Local data
 inbox.csv
+results.csv
