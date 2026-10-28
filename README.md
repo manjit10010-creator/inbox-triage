@@ -127,3 +127,33 @@ To check your Discord webhook on its own: `uv run test_discord.py` (a working we
 - Web form input
 - Approval step before sending
 - Reply in the sender's language more consistently, using example replies in the prompt
+
+
+## Gmail email agent
+
+The `email-agent` branch connects the triage assistant to a real Gmail inbox
+and runs on a schedule.
+
+**How it works**
+
+1. A rules layer (`rules.py`) labels most mail by sender domain and Gmail's
+   own categories: newsletter, promotion, jobs, finance, social, receipts,
+   security_account. No AI, no email body is read.
+2. Only personal or unknown senders go to Gemini (`triage.py`), which
+   classifies the message and decides if a human must review it.
+3. Labels are applied in Gmail (`Triage/...`). Security alerts and
+   human-review messages trigger a Discord alert.
+4. A processed log prevents any email from being handled twice.
+
+**Safety design**
+
+- The code never sends, deletes or archives email. It only reads and labels.
+- Credentials and tokens stay local and are git-ignored.
+- Rules run first, so around 99% of mail never leaves the machine.
+
+**Run it**
+
+    uv run agent.py --dry-run   # preview, changes nothing
+    uv run agent.py             # label new mail
+
+`run_agent.bat` runs it on a schedule through Windows Task Scheduler.
