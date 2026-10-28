@@ -1,5 +1,6 @@
 import base64
 import os
+from email.message import EmailMessage
 from email.utils import parseaddr
 
 from google.auth.transport.requests import Request
@@ -34,7 +35,7 @@ def get_service():
 
 
 def list_latest(service, n=5):
-    """Return the n newest inbox emails with the fields the rules need."""
+    """Return the n newest inbox emails with the fields the rules and drafts need."""
     result = service.users().messages().list(
         userId="me", labelIds=["INBOX"], maxResults=n
     ).execute()
@@ -43,13 +44,16 @@ def list_latest(service, n=5):
     for m in result.get("messages", []):
         msg = service.users().messages().get(
             userId="me", id=m["id"], format="metadata",
-            metadataHeaders=["From", "Subject", "List-Unsubscribe"],
+            metadataHeaders=["From", "Subject", "List-Unsubscribe", "Message-ID", "Reply-To"],
         ).execute()
         headers = {h["name"].lower(): h["value"] for h in msg["payload"]["headers"]}
         _, addr = parseaddr(headers.get("from", ""))
         emails.append({
             "id": m["id"],
+            "thread_id": msg["threadId"],
+            "message_id": headers.get("message-id", ""),
             "sender": headers.get("from", "(unknown)"),
+            "reply_to": headers.get("reply-to") or headers.get("from", ""),
             "subject": headers.get("subject", "(no subject)"),
             "domain": addr.split("@")[-1].lower() if "@" in addr else "",
             "labels": msg.get("labelIds", []),
@@ -88,6 +92,27 @@ def apply_label(service, msg_id, label_name):
     label_id = get_or_create_label(service, label_name)
     service.users().messages().modify(
         userId="me", id=msg_id, body={"addLabelIds": [label_id]}
+    ).execute()
+
+
+def create_draft(service, email, body_text):
+    """Save a reply as a Gmail draft in the same thread. Never sends anything."""
+    subject = email["subject"]
+    if not subject.lower().startswith("re:"):
+        subject = f"Re: {subject}"
+
+    msg = EmailMessage()
+    msg["To"] = email["reply_to"]
+    msg["Subject"] = subject
+    if email["message_id"]:
+        msg["In-Reply-To"] = email["message_id"]
+        msg["References"] = email["message_id"]
+    msg.set_content(body_text)
+
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    service.users().drafts().create(
+        userId="me",
+        body={"message": {"raw": raw, "threadId": email["thread_id"]}},
     ).execute()
 
 

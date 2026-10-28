@@ -3,7 +3,7 @@ import os
 import sys
 import time
 
-from gmail_client import get_service, list_latest, get_body, apply_label
+from gmail_client import get_service, list_latest, get_body, apply_label, create_draft
 from rules import classify_by_rules
 from triage import classify_message, decide_action, send_alert
 
@@ -11,6 +11,7 @@ PROCESSED_PATH = "processed.json"
 FETCH_LATEST = 50      # how many recent inbox emails to look at
 MAX_AI_PER_RUN = 10    # cap on Gemini calls per run
 MAX_BODY_CHARS = 4000
+SENDER_NAME = os.environ.get("SENDER_NAME", "[Your Name]")
 
 
 def load_processed() -> dict:
@@ -38,7 +39,7 @@ def main(dry_run: bool) -> None:
         category = classify_by_rules(
             e["domain"], e["labels"], e["has_unsubscribe"], e["subject"]
         )
-        labels, alert = [], None
+        labels, alert, draft_text = [], None, None
         action_note = ""
 
         if category is not None:
@@ -71,6 +72,9 @@ def main(dry_run: bool) -> None:
             if action == "human_review":
                 labels.append("Triage/human_review")
                 alert = result
+            elif action == "ready_for_approval":
+                labels.append("Triage/draft_ready")
+                draft_text = result["draft_reply"].replace("[Your Name]", SENDER_NAME)
             action_note = f" -> {action}"
             ai_count += 1
 
@@ -78,8 +82,18 @@ def main(dry_run: bool) -> None:
             f"[{source.upper()}] {category}{action_note}  |  "
             f"{e['sender'][:45]}  |  {e['subject'][:50]}"
         )
+        if draft_text:
+            print("  Draft reply:")
+            for line in draft_text.splitlines():
+                print(f"    {line}")
 
         if not dry_run:
+            if draft_text:
+                try:
+                    create_draft(service, e, draft_text)
+                except Exception as err:
+                    print(f"  Draft failed ({type(err).__name__}); will retry next run.")
+                    continue  # not marked as processed, so it is retried
             for label in labels:
                 apply_label(service, e["id"], label)
             if alert:
