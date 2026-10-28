@@ -35,8 +35,11 @@ def main(dry_run: bool) -> None:
         if e["id"] in processed:
             continue
 
-        category = classify_by_rules(e["domain"], e["labels"], e["has_unsubscribe"], e["subject"])
+        category = classify_by_rules(
+            e["domain"], e["labels"], e["has_unsubscribe"], e["subject"]
+        )
         labels, alert = [], None
+        action_note = ""
 
         if category is not None:
             # Rules layer: no AI, no email body, instant.
@@ -68,9 +71,13 @@ def main(dry_run: bool) -> None:
             if action == "human_review":
                 labels.append("Triage/human_review")
                 alert = result
+            action_note = f" -> {action}"
             ai_count += 1
 
-        print(f"[{source.upper()}] {category}  |  {e['sender'][:45]}  |  {e['subject'][:50]}")
+        print(
+            f"[{source.upper()}] {category}{action_note}  |  "
+            f"{e['sender'][:45]}  |  {e['subject'][:50]}"
+        )
 
         if not dry_run:
             for label in labels:
