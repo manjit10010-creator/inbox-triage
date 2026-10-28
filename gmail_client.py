@@ -21,12 +21,12 @@ def get_service():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            if os.environ.get("AGENT_AUTO"):
+                raise RuntimeError(
+                    "Gmail login expired. Run agent.py manually once to log in again."
+                )
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
-        with open("token.json", "w") as f:
-            f.write(creds.to_json())
-
-    return build("gmail", "v1", credentials=creds)
 
 
 def list_latest(service, n=5):
