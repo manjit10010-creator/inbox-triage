@@ -23,3 +23,5 @@ processed.json
 mailbox_export.csv
 
 agent.log
+
+last_failure_alert.txt

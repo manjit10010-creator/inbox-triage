@@ -1,3 +1,6 @@
+import traceback
+
+import requests
 import json
 import os
 import sys
@@ -25,6 +28,28 @@ def save_processed(processed: dict) -> None:
     with open(PROCESSED_PATH, "w", encoding="utf-8") as f:
         json.dump(processed, f, indent=2)
 
+ALERT_STATE = "last_failure_alert.txt"
+ALERT_EVERY_SECONDS = 6 * 3600   # at most one failure alert per 6 hours
+
+
+def alert_failure(err: Exception) -> None:
+    """Tell Discord the agent crashed. Throttled so a persistent problem
+    doesn't send an alert every 15 minutes."""
+    try:
+        if os.path.exists(ALERT_STATE):
+            with open(ALERT_STATE) as f:
+                last = float(f.read().strip() or 0)
+            if time.time() - last < ALERT_EVERY_SECONDS:
+                return
+        url = os.environ.get("DISCORD_WEBHOOK_URL")
+        if not url:
+            return
+        text = f"**Inbox agent failed**\n{type(err).__name__}: {str(err)[:300]}"
+        requests.post(url, json={"content": text}, timeout=30)
+        with open(ALERT_STATE, "w") as f:
+            f.write(str(time.time()))
+    except Exception:
+        pass  # an alert problem must never hide the original error
 
 def main(dry_run: bool) -> None:
     service = get_service()
@@ -111,4 +136,9 @@ def main(dry_run: bool) -> None:
 
 
 if __name__ == "__main__":
-    main(dry_run="--dry-run" in sys.argv)
+    try:
+        main(dry_run="--dry-run" in sys.argv)
+    except Exception as err:
+        traceback.print_exc()   # full details still go to agent.log
+        alert_failure(err)
+        sys.exit(1)
