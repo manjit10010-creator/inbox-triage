@@ -18,3 +18,6 @@ token.json
 # Local data
 inbox.csv
 results.csv
+
+processed.json
+mailbox_export.csv
